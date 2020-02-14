@@ -1,12 +1,13 @@
-var createError = require('http-errors');
-var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
+const createError = require('http-errors');
+const express = require('express');
+const path = require('path');
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
+const logger = require('morgan');
 const bodyParser = require('body-parser');
-
-var app = express();
-var proxyMiddleware = require('http-proxy-middleware');
+const app = express();
+const proxyMiddleware = require('http-proxy-middleware');
+const config = require('./config/proxy');
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -32,16 +33,20 @@ const restream = function(proxyReq, req, res, options) {
   }
 };
 
-app.middleware = [
-    proxyMiddleware(['/'], {
-        target: 'http://merchant-dev.fenbeijinfu.com',//将要代理的地址
-        changeOrigin: true,
-        secure: false,
-        onProxyReq: restream
-    })
-];
-
-app.use(app.middleware);
+for(let key in config){
+    const url = '/' + key
+    const target = config[key].target
+    app.middleware = [
+        proxyMiddleware([url], {
+            target: target,
+            changeOrigin: true,
+            secure: false,
+            onProxyReq: restream
+        })
+    ];
+    app.use(app.middleware);
+}
+app.use(helmet());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 // catch 404 and forward to error handler
@@ -53,7 +58,7 @@ app.use(function(req, res, next) {
 app.use(function(err, req, res, next) {
     // set locals, only providing error in development
     res.locals.message = err.message;
-    res.locals.error = req.app.get('env') === 'development' ? err : {};
+    res.locals.error = req.app.get('env') === 'dev' ? err : {};
 
     // render the error page
     res.status(err.status || 500);
